@@ -1,3 +1,4 @@
+
 package com.eazybytes.eazystore.filter;
 
 import com.eazybytes.eazystore.constants.ApplicationConstants;
@@ -13,8 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.core.env.Environment;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -22,58 +22,158 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 @RequiredArgsConstructor
 public class JWTTokenValidatorFilter extends OncePerRequestFilter {
-    private final AntPathMatcher pathMatcher = new AntPathMatcher();
-    private final List<String> publicPaths;
 
+    private final List<String> publicPaths;
+    private final Environment environment;
+
+    private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-            HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
-        String authHeader = request.getHeader(ApplicationConstants.JWT_HEADER);
-        if (null != authHeader) {
-            try {
-                // Extract the JWT token
-                String jwt = authHeader.substring(7); // Remove 'Bearer ' prefix
-                Environment env = getEnvironment();
-                if (null != env) {
-                    String secret = env.getProperty(ApplicationConstants.JWT_SECRET_KEY,
-                            ApplicationConstants.JWT_SECRET_DEFAULT_VALUE);
-                    SecretKey secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-                    if (null != secretKey) {
-                        Claims claims = Jwts.parser().verifyWith(secretKey)
-                                .build().parseSignedClaims(jwt).getPayload();
-                        String username = String.valueOf(claims.get("email"));
-                        String roles = String.valueOf(claims.get("roles"));
-                        Authentication authentication = new UsernamePasswordAuthenticationToken(username,
-                                null, AuthorityUtils.commaSeparatedStringToAuthorityList(roles));
-                        SecurityContextHolder.getContext().setAuthentication(authentication);
-                    }
-                }
+    protected boolean shouldNotFilter(HttpServletRequest request) {
 
-            }catch (ExpiredJwtException exception) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("Token Expired");
-                return;
-            }
-            catch (Exception exception) {
-                throw new BadCredentialsException("Invalid Token received!");
-            }
-        }
-        filterChain.doFilter(request, response);
+        String path = request.getServletPath();
 
+        return publicPaths.stream()
+                .anyMatch(publicPath ->
+                        pathMatcher.match(publicPath, path)
+                );
     }
 
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request)
-            throws ServletException {
-        String path = request.getRequestURI();
-        return publicPaths.stream().anyMatch(publicPath ->
-                pathMatcher.match(publicPath, path));
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+
+        String authHeader =
+                request.getHeader(ApplicationConstants.JWT_HEADER);
+
+        // No token: let Spring Security handle authorization.
+        if (authHeader == null || authHeader.isBlank()) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if (!authHeader.startsWith("Bearer ")) {
+            SecurityContextHolder.clearContext();
+            response.sendError(
+                    HttpServletResponse.SC_UNAUTHORIZED,
+                    "Invalid Authorization header"
+            );
+            return;
+        }
+
+        String jwt = authHeader.substring(7).trim();
+
+        try {
+            String secret = environment.getProperty(
+                    ApplicationConstants.JWT_SECRET_KEY,
+                    ApplicationConstants.JWT_SECRET_DEFAULT_VALUE
+            );
+
+            SecretKey secretKey = Keys.hmacShaKeyFor(
+                    secret.getBytes(StandardCharsets.UTF_8)
+            );
+
+            Claims claims = Jwts.parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parseSignedClaims(jwt)
+                    .getPayload();
+
+            String username = claims.get("email", String.class);
+
+            if (username == null || username.isBlank()) {
+                throw new BadCredentialsException(
+                        "Email claim missing in JWT"
+                );
+            }
+
+            List<SimpleGrantedAuthority> authorities =
+                    extractAuthorities(claims);
+
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            username,
+                            null,
+                            authorities
+                    );
+
+            SecurityContextHolder.getContext()
+                    .setAuthentication(authentication);
+
+        } catch (ExpiredJwtException exception) {
+            SecurityContextHolder.clearContext();
+
+            response.sendError(
+                    HttpServletResponse.SC_UNAUTHORIZED,
+                    "Token expired. Please login again."
+            );
+            return;
+
+        } catch (Exception exception) {
+            SecurityContextHolder.clearContext();
+
+            response.sendError(
+                    HttpServletResponse.SC_UNAUTHORIZED,
+                    "Invalid token received"
+            );
+            return;
+        }
+
+        // IMPORTANT: Keep this outside the JWT try-catch.
+        filterChain.doFilter(request, response);
+    }
+
+    private List<SimpleGrantedAuthority> extractAuthorities(
+            Claims claims
+    ) {
+        List<SimpleGrantedAuthority> authorities =
+                new ArrayList<>();
+
+        Object rolesClaim = claims.get("roles");
+
+        if (rolesClaim instanceof Collection<?> roles) {
+            for (Object role : roles) {
+                addAuthority(authorities, role);
+            }
+
+        } else if (rolesClaim instanceof String roles) {
+            for (String role : roles.split(",")) {
+                addAuthority(authorities, role);
+            }
+        }
+
+        return authorities;
+    }
+
+    private void addAuthority(
+            List<SimpleGrantedAuthority> authorities,
+            Object role
+    ) {
+        if (role == null) {
+            return;
+        }
+
+        String authority = role.toString().trim();
+
+        if (authority.isBlank()) {
+            return;
+        }
+
+        if (!authority.startsWith("ROLE_")) {
+            authority = "ROLE_" + authority;
+        }
+
+        authorities.add(
+                new SimpleGrantedAuthority(authority)
+        );
     }
 }

@@ -10,14 +10,15 @@ public class PublicPathConfig {
 
     @Bean
     public List<String> publicPaths() {
-      return List.of(
-              "/api/v1/products/**",
-              "/api/v1/contacts/**",
-              "/api/v1/auth/**",
-              "/api/v1/profile/**", 
-              "/error",
-              "/api/v1/csrf-token"
-      );
-    };
-
+        return List.of(
+                "/api/v1/products/**",
+                "/api/v1/contacts/**",
+                "/api/v1/auth/**",
+                "/api/v1/profile/**",
+                "/error",
+                "/api/v1/csrf-token",
+                "/oauth2/**",
+                "/login/oauth2/**"
+        );
+    }
 }
