@@ -16,8 +16,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.password.HaveIBeenPwnedRestApiPasswordChecker;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -42,33 +40,12 @@ public class EazyStoreSecurityConfig {
             Environment environment
     ) throws Exception {
 
-        // =========================
-        // CSRF COOKIE CONFIGURATION
-        // =========================
-        CookieCsrfTokenRepository csrfTokenRepository =
-                CookieCsrfTokenRepository.withHttpOnlyFalse();
-
-        csrfTokenRepository.setCookieCustomizer(cookie -> cookie
-                .sameSite("None")
-                .secure(true)
-                .path("/")
-        );
-
         return http
 
                 // =========================
                 // CSRF CONFIGURATION
                 // =========================
-                .csrf(csrfConfig -> csrfConfig
-                        .csrfTokenRepository(csrfTokenRepository)
-                        .csrfTokenRequestHandler(
-                                new CsrfTokenRequestAttributeHandler()
-                        )
-                        .ignoringRequestMatchers(
-                                "/api/v1/payment/**",
-                                "/api/v1/ai/**"
-                        )
-                )
+                .csrf(csrf -> csrf.disable())
 
                 // =========================
                 // CORS CONFIGURATION

@@ -40,9 +40,10 @@ public class OAuth2LoginSuccessHandler
         String email = oauth2User.getAttribute("email");
         String name = oauth2User.getAttribute("name");
 
+        // Google OAuth failed / email unavailable
         if (email == null || email.isBlank()) {
             response.sendRedirect(
-                    "http://localhost:5173/login?oauth2=error"
+                    "https://eazystore-project.vercel.app/login?oauth2=error"
             );
             return;
         }
@@ -64,7 +65,7 @@ public class OAuth2LoginSuccessHandler
 
             customer.setEmail(email);
 
-            // Required fields in Customer entity
+            // Required field in Customer entity
             customer.setMobileNumber("0000000000");
 
             // Google users don't need password login
@@ -81,7 +82,7 @@ public class OAuth2LoginSuccessHandler
 
             if (userRole == null) {
                 response.sendRedirect(
-                        "http://localhost:5173/login?oauth2=error"
+                        "https://eazystore-project.vercel.app/login?oauth2=error"
                 );
                 return;
             }
@@ -91,6 +92,7 @@ public class OAuth2LoginSuccessHandler
             customer = customerRepository.save(customer);
         }
 
+        // Generate JWT for the customer
         String jwtToken =
                 jwtUtil.generateJwtTokenForCustomer(customer);
 
@@ -109,8 +111,9 @@ public class OAuth2LoginSuccessHandler
                 StandardCharsets.UTF_8
         );
 
+        // Redirect to production Vercel frontend
         String redirectUrl =
-                "http://localhost:5173/login" +
+                "https://eazystore-project.vercel.app/login" +
                 "?oauth2=success" +
                 "&token=" + encodedToken +
                 "&name=" + encodedName +
