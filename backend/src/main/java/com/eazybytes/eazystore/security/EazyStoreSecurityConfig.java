@@ -42,15 +42,25 @@ public class EazyStoreSecurityConfig {
             Environment environment
     ) throws Exception {
 
+        // =========================
+        // CSRF COOKIE CONFIGURATION
+        // =========================
+        CookieCsrfTokenRepository csrfTokenRepository =
+                CookieCsrfTokenRepository.withHttpOnlyFalse();
+
+        csrfTokenRepository.setCookieCustomizer(cookie -> cookie
+                .sameSite("None")
+                .secure(true)
+                .path("/")
+        );
+
         return http
 
                 // =========================
                 // CSRF CONFIGURATION
                 // =========================
                 .csrf(csrfConfig -> csrfConfig
-                        .csrfTokenRepository(
-                                CookieCsrfTokenRepository.withHttpOnlyFalse()
-                        )
+                        .csrfTokenRepository(csrfTokenRepository)
                         .csrfTokenRequestHandler(
                                 new CsrfTokenRequestAttributeHandler()
                         )
@@ -171,11 +181,11 @@ public class EazyStoreSecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowedOrigins(
-        Arrays.asList(
-                "http://localhost:5173",
-                "https://eazystore-project.vercel.app"
-        )
-);
+                Arrays.asList(
+                        "http://localhost:5173",
+                        "https://eazystore-project.vercel.app"
+                )
+        );
 
         config.setAllowedMethods(
                 Collections.singletonList("*")
