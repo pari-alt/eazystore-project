@@ -29,7 +29,7 @@ export default function AIShoppingAssistant() {
 
     try {
       const response = await fetch(
-        "http://localhost:8080/api/v1/ai/chat",
+        `${import.meta.env.VITE_API_BASE_URL}/ai/chat`,
         {
           method: "POST",
           headers: {
@@ -90,7 +90,6 @@ export default function AIShoppingAssistant() {
       {/* Chat Window */}
       {isOpen && (
         <div className="fixed bottom-24 right-6 z-50 w-[360px] max-w-[calc(100vw-32px)] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-
           {/* Header */}
           <div className="bg-primary text-white px-4 py-3 flex items-center justify-between">
             <div>
@@ -105,6 +104,7 @@ export default function AIShoppingAssistant() {
             <button
               onClick={() => setIsOpen(false)}
               className="text-xl hover:opacity-80"
+              aria-label="Close chat"
             >
               ×
             </button>
