@@ -171,8 +171,11 @@ public class EazyStoreSecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowedOrigins(
-                Arrays.asList("http://localhost:5173")
-        );
+        Arrays.asList(
+                "http://localhost:5173",
+                "https://eazystore-project.vercel.app"
+        )
+);
 
         config.setAllowedMethods(
                 Collections.singletonList("*")
