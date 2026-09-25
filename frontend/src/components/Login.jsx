@@ -167,8 +167,8 @@ export default function Login() {
           <button
             type="button"
             onClick={() => {
-            window.location.href =
-  "http://localhost:8080/oauth2/authorization/google?prompt=select_account";
+              window.location.href =
+                "https://eazystore-backend-vr41.onrender.com/oauth2/authorization/google?prompt=select_account";
             }}
             className="w-full px-6 py-2 border border-gray-300 rounded-md
               text-gray-700 dark:text-white font-semibold
